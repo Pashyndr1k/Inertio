@@ -34,9 +34,9 @@ Settings LoadSettings() {
   SpringParams& m = s.motion;
   m.frequency = ReadDouble(ini, L"Motion", L"Frequency", m.frequency, 0.5, 20);
   m.damping = ReadDouble(ini, L"Motion", L"Damping", m.damping, 0.05, 3);
-  m.drag = ReadDouble(ini, L"Motion", L"Drag", m.drag, 0, 5000);
+  m.drag = ReadDouble(ini, L"Motion", L"Drag", m.drag, 0, 50000);
   m.kick = ReadDouble(ini, L"Motion", L"Kick", m.kick, 0, 5000);
-  m.maxAngle = ReadDouble(ini, L"Motion", L"MaxAngle", m.maxAngle * 180 / ArrowSpring::kPi, 0, 170) *
+  m.maxAngle = ReadDouble(ini, L"Motion", L"MaxAngle", m.maxAngle * 180 / ArrowSpring::kPi, 0, 180) *
                ArrowSpring::kPi / 180;
   s.size = ReadDouble(ini, L"Look", L"Size", s.size, 0.5, 4);
   s.shadow = ReadDouble(ini, L"Look", L"Shadow", 1, 0, 1) >= 0.5;
