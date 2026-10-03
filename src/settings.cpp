@@ -42,3 +42,9 @@ Settings LoadSettings() {
   s.shadow = ReadDouble(ini, L"Look", L"Shadow", 1, 0, 1) >= 0.5;
   return s;
 }
+
+bool SaveMotionValue(const wchar_t* key, double value) {
+  wchar_t buf[32];
+  std::swprintf(buf, 32, L"%g", value);
+  return WritePrivateProfileStringW(L"Motion", key, buf, IniPath().c_str()) != 0;
+}

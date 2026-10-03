@@ -20,10 +20,12 @@
 #include <timeapi.h>
 
 #include <cstdlib>
+#include <cwchar>
 #include <exception>
 #include <string>
 
 #include "overlay.h"
+#include "presets.h"
 #include "settings.h"
 #include "spring.h"
 #include "system_cursor.h"
@@ -38,7 +40,10 @@ const wchar_t kRunValue[] = L"InertiaCursor";
 constexpr UINT WM_TRAY = WM_APP + 1;
 constexpr UINT kTrayId = 1;
 constexpr UINT_PTR kMenuTimer = 1;
-enum MenuId : UINT { kMenuEnabled = 100, kMenuAutostart, kMenuQuit };
+enum MenuId : UINT { kMenuEnabled = 100, kMenuAutostart, kMenuQuit, kMenuResetMotion };
+// Preset j of motion setting i is kMenuPresetBase + i * kMenuPresetStride + j.
+constexpr UINT kMenuPresetBase = 200;
+constexpr UINT kMenuPresetStride = 20;
 
 HINSTANCE g_instance;
 HWND g_window;  // hidden; owns the tray icon and gets shutdown messages
@@ -46,6 +51,7 @@ UINT g_taskbarCreated;
 HICON g_icon;
 Overlay g_overlay;
 ArrowSpring g_spring;
+SpringParams g_motion;  // what g_spring runs with; the tray presets change it
 bool g_enabled = true;
 bool g_running = true;
 
@@ -134,6 +140,56 @@ void SetAutostart(bool on) {
   RegCloseKey(key);
 }
 
+// ---- Motion presets ----
+
+// Applies a motion setting at once and saves it to the ini, so it survives a restart.
+// Returns false if it couldn't be saved.
+bool SetMotion(size_t setting, double value) {
+  presets::Set(g_motion, setting, value);
+  g_spring.setParams(g_motion);
+  return SaveMotionValue(presets::kSettings[setting].iniKey, value);
+}
+
+void WarnNotSaved() {
+  MessageBoxW(nullptr,
+              L"Couldn't save to inertia-cursor.ini, so this change lasts until you quit.\n"
+              L"Move InertiaCursor.exe to a folder you can write to, such as "
+              L"%LOCALAPPDATA%\\InertiaCursor.",
+              kAppName, MB_OK | MB_ICONWARNING);
+}
+
+// Puts the four tray settings back to the default presets (the same values the ini ships with).
+void ResetMotion() {
+  bool saved = true;
+  for (size_t i = 0; i < presets::kCount; ++i) {
+    const MotionSetting& s = presets::kSettings[i];
+    saved &= SetMotion(i, s.presets[s.defaultIndex].value);
+  }
+  if (!saved) WarnNotSaved();
+}
+
+HMENU MotionSubmenu(size_t setting) {
+  const MotionSetting& s = presets::kSettings[setting];
+  const int current = presets::Match(g_motion, setting);
+  HMENU sub = CreatePopupMenu();
+  for (size_t j = 0; j < s.count; ++j) {
+    const UINT id = kMenuPresetBase + static_cast<UINT>(setting) * kMenuPresetStride +
+                    static_cast<UINT>(j);
+    AppendMenuW(sub, MF_STRING, id, s.presets[j].label);
+    if (current == static_cast<int>(j)) {
+      CheckMenuRadioItem(sub, id, id, id, MF_BYCOMMAND);
+    }
+  }
+  if (current < 0) {
+    // A value typed into the ini by hand: show it, checked, but it can't be picked again.
+    wchar_t label[64];
+    std::swprintf(label, 64, L"Custom (%g)", presets::Get(g_motion, setting));
+    AppendMenuW(sub, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(sub, MF_STRING | MF_GRAYED | MF_CHECKED, 0, label);
+  }
+  return sub;
+}
+
 // ---- Tray ----
 
 void AddTrayIcon() {
@@ -160,6 +216,13 @@ void ShowTrayMenu() {
   AppendMenuW(menu, MF_STRING | (AutostartIsOn() ? MF_CHECKED : 0), kMenuAutostart,
               L"&Start with Windows");
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+  for (size_t i = 0; i < presets::kCount; ++i) {
+    // Destroying the menu also destroys its submenus.
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(MotionSubmenu(i)),
+                presets::kSettings[i].menuLabel);
+  }
+  AppendMenuW(menu, MF_STRING, kMenuResetMotion, L"Reset &motion to defaults");
+  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kMenuQuit, L"&Quit");
   POINT pt;
   GetCursorPos(&pt);
@@ -172,6 +235,16 @@ void ShowTrayMenu() {
     case kMenuEnabled: SetEnabled(!g_enabled); break;
     case kMenuAutostart: SetAutostart(!AutostartIsOn()); break;
     case kMenuQuit: DestroyWindow(g_window); break;
+    case kMenuResetMotion: ResetMotion(); break;
+    default:
+      if (cmd >= kMenuPresetBase) {
+        const size_t setting = (cmd - kMenuPresetBase) / kMenuPresetStride;
+        const size_t j = (cmd - kMenuPresetBase) % kMenuPresetStride;
+        if (setting < presets::kCount && j < presets::kSettings[setting].count) {
+          if (!SetMotion(setting, presets::kSettings[setting].presets[j].value)) WarnNotSaved();
+        }
+      }
+      break;
   }
 }
 
@@ -332,7 +405,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
   g_instance = instance;
   const Settings settings = LoadSettings();
-  g_spring.setParams(settings.motion);
+  g_motion = settings.motion;
+  g_spring.setParams(g_motion);
 
   WNDCLASSEXW wc = {sizeof(wc)};
   wc.lpfnWndProc = MainProc;

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "presets.h"
 #include "spring.h"
 
 static int failures = 0;
@@ -128,6 +129,22 @@ int main() {
     s.update(kFrame, 0, 0);
     const double a = s.update(5.0, 3000, 0);
     check(std::fabs(a) < 0.5, "a five-second stall followed by a jump does not fling the arrow");
+  }
+
+  {
+    // The tray presets marked as default are the real defaults, and every preset round-trips.
+    const SpringParams defaults;
+    bool allDefault = true, allRoundTrip = true;
+    for (size_t i = 0; i < presets::kCount; ++i) {
+      allDefault &= presets::Match(defaults, i) == static_cast<int>(presets::kSettings[i].defaultIndex);
+      for (size_t j = 0; j < presets::kSettings[i].count; ++j) {
+        SpringParams p;
+        presets::Set(p, i, presets::kSettings[i].presets[j].value);
+        allRoundTrip &= presets::Match(p, i) == static_cast<int>(j);
+      }
+    }
+    check(allDefault, "each tray setting's default preset matches SpringParams");
+    check(allRoundTrip, "picking any tray preset shows it as the checked one");
   }
 
   std::printf("%s\n", failures ? "FAILED" : "all passed");

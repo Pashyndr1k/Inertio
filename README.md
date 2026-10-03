@@ -22,6 +22,9 @@ Right-click the tray arrow for:
 
 - **Animated arrow**: turn the effect off and on (double-clicking the icon does the same).
 - **Start with Windows**: run it at sign-in. This adds a per-user entry, no admin needed.
+- **Return speed**, **Wobble**, **Tilt strength** and **Max tilt**: how the arrow moves (see
+  [Tune it](#tune-it)).
+- **Reset motion to defaults**: put those four back where they started.
 - **Quit**: put the normal arrow back and exit.
 
 It needs Windows 10 (1703 or later) or Windows 11. One .exe, nothing to install.
@@ -38,15 +41,30 @@ left behind. If the arrow is ever missing anyway, any of these brings it back:
 
 ## Tune it
 
-Edit `inertia-cursor.ini` next to the .exe, then quit and restart the app:
+The four settings that shape the motion are in the tray menu. Pick a preset and the arrow
+changes straight away; the choice is saved to `inertia-cursor.ini` next to the .exe, so it
+sticks after a restart. **Reset motion to defaults** puts all four back.
+
+| Tray menu | Presets (default in bold) | What it does |
+| --- | --- | --- |
+| **Return speed** | Slow 1.5, Relaxed 2.2, **Default 3.0**, Quick 4.5, Snappy 6.5 | How fast it swings back upright once you stop, in swings per second. This is the spring's stiffness. |
+| **Wobble** | Bouncy 0.15, Lively 0.3, **Default 0.45**, Gentle 0.7, None 1.0 | Damping: how much it overshoots before settling. Lower bounces more; 1 returns without overshoot. |
+| **Tilt strength** | Subtle 1500, Light 3000, **Default 6000**, Strong 12000, Extreme 25000 | How hard moving the mouse swings the arrow round to point along the motion. |
+| **Max tilt** | 45°, 90°, 135°, **180°** | The furthest it can turn either way. At 180° it can face straight back. |
+
+If you've typed a value into the ini that isn't one of the presets, its submenu shows it as
+"Custom" until you pick a preset.
+
+For everything else, or for values between the presets, edit `inertia-cursor.ini`, then
+quit and restart the app:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `Frequency` | 3.0 | How fast it swings back, in swings per second |
-| `Damping` | 0.45 | Below 1 overshoots before settling; 1 or more returns smoothly |
-| `Drag` | 6000 | How hard moving swings the arrow round to point along the motion |
+| `Frequency` | 3.0 | Return speed: how fast it swings back, in swings per second |
+| `Damping` | 0.45 | Wobble: below 1 overshoots before settling; 1 or more returns smoothly |
+| `Drag` | 6000 | Tilt strength: how hard moving swings the arrow round to point along the motion |
 | `Kick` | 140 | How much it swings when you start or stop |
-| `MaxAngle` | 180 | Furthest turn either way, in degrees (180 lets it face straight back) |
+| `MaxAngle` | 180 | Max tilt: furthest turn either way, in degrees (180 lets it face straight back) |
 | `Size` | 1.0 | Arrow size, on top of Windows' own pointer size |
 | `Shadow` | 1 | Soft drop shadow, 1 on or 0 off |
 
