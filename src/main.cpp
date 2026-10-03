@@ -1,6 +1,6 @@
 /*
-  Inertia Cursor: replaces the Windows arrow with one that leans into the motion and springs
-  back to the classic pose when the mouse stops.
+  Inertia Cursor: replaces the Windows arrow with one that swings round its tip to point the
+  way you move, and springs back to the classic pose when the mouse stops.
 
   How it works:
     1. The normal arrow is swapped for an invisible cursor (SetSystemCursor). Nothing else is.

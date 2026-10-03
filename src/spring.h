@@ -1,9 +1,11 @@
 #pragma once
 /*
-  The arrow is a stiff pendulum pinned at its tip. Its tail sits down and to the right of the
-  tip, the classic pose. When the tip moves, two things push on the tail:
+  The arrow hangs from its tip like a weathervane from its pin. The tip is the only fixed
+  point: the whole arrow rotates around it.
 
-    - drag: the tail trails behind the motion, so the tip turns to lead it;
+    - steering: while the mouse moves, the arrow is pulled round to point the way it is going,
+      as far as a full half turn when you move straight back against it. The faster the move,
+      the closer it gets to pointing exactly along it;
     - inertia: when the tip speeds up or brakes, the tail is left behind or carried past.
 
   A torsion spring pulls the arrow back to the classic pose and a damper takes the energy out,
@@ -17,14 +19,16 @@
 #include <algorithm>
 #include <cmath>
 
+inline constexpr double kSpringPi = 3.14159265358979323846;
+
 struct SpringParams {
   double frequency = 3.0;          // Hz: how quickly the arrow swings back to the classic pose
-  double damping = 0.32;           // ratio: below 1 it overshoots a little before settling
-  double drag = 520.0;             // rad/s^2 at full speed: how far motion turns the arrow
-  double dragHalfSpeed = 900.0;    // px/s at which drag reaches half its strength
+  double damping = 0.45;           // ratio: below 1 it overshoots a little before settling
+  double drag = 6000.0;            // how hard motion steers the arrow to point along it
+  double dragHalfSpeed = 300.0;    // px/s at which steering reaches half its strength
   double kick = 140.0;             // rad/s^2 at full acceleration: the swing on start and stop
   double kickHalfAccel = 20000.0;  // px/s^2 at which the kick reaches half its strength
-  double maxAngle = 2.6;           // rad: hard limit, so it never spins all the way round
+  double maxAngle = kSpringPi;            // rad: the furthest it turns either way; a half turn by default
   double smoothing = 0.02;         // s: low-pass on the measured velocity, mice are noisy
 };
 
@@ -72,16 +76,30 @@ class ArrowSpring {
     ax_ += (rawAx - ax_) * k;
     ay_ += (rawAy - ay_) * k;
 
-    // The push on the tail, as an acceleration in the tip's frame: opposite to the velocity
-    // (drag) and opposite to the acceleration (inertia). Each saturates, so a flick turns the
-    // arrow decisively but never sends it spinning.
+    // Steering: the angle that would make the arrow point exactly along the motion, taken on
+    // the side nearest to where it is now so it never whips the long way round, and limited
+    // to maxAngle. Its pull grows with speed and saturates, so slow moves turn it partway and
+    // brisk ones turn it all the way.
+    const double spd = speed();
+    double steer = 0, target = 0;
+    if (spd > 1e-6) {
+      // At rest the arrow points opposite its tail, about 23 degrees left of straight up.
+      const double aligned = std::atan2(vx_, -vy_) - std::atan2(-kTailX, kTailY);
+      target = aligned + 2 * kPi * std::round((angle_ - aligned) / (2 * kPi));
+      target = (std::max)(-p_.maxAngle, (std::min)(p_.maxAngle, target));
+      steer = p_.drag * spd / (spd + p_.dragHalfSpeed);
+    }
+
+    // Inertia: a push on the tail opposite to the acceleration of the tip. Saturates, so a
+    // flick swings the arrow decisively but never sends it spinning.
     double fx = 0, fy = 0;
-    addSaturated(-vx_, -vy_, p_.drag, p_.dragHalfSpeed, fx, fy);
     addSaturated(-ax_, -ay_, p_.kick, p_.kickHalfAccel, fx, fy);
 
     // Fixed 240 Hz substeps, semi-implicit Euler: stable at any frame rate.
     const double w0 = 2 * kPi * p_.frequency;
-    const double kSpring = w0 * w0, cDamp = 2 * p_.damping * w0;
+    const double kSpring = w0 * w0;
+    // Damp against the total stiffness, so the arrow is as steady while steered as at rest.
+    const double cDamp = 2 * p_.damping * std::sqrt(kSpring + steer);
     acc_ += dt;
     while (acc_ >= kStep) {
       acc_ -= kStep;
@@ -89,7 +107,7 @@ class ArrowSpring {
       // Tail direction: the rest direction rotated by the current angle.
       const double rx = kTailX * c - kTailY * s, ry = kTailX * s + kTailY * c;
       const double torque = rx * fy - ry * fx;
-      omega_ += (torque - kSpring * angle_ - cDamp * omega_) * kStep;
+      omega_ += (torque - kSpring * angle_ + steer * (target - angle_) - cDamp * omega_) * kStep;
       angle_ += omega_ * kStep;
       if (angle_ > p_.maxAngle) {
         angle_ = p_.maxAngle;
@@ -112,7 +130,7 @@ class ArrowSpring {
   double speed() const { return std::hypot(vx_, vy_); }
   bool settled() const { return angle_ == 0 && omega_ == 0 && speed() < 1; }
 
-  static constexpr double kPi = 3.14159265358979323846;
+  static constexpr double kPi = kSpringPi;
   // From the tip to the middle of the tail at rest: about 23 degrees right of straight down.
   static constexpr double kTailX = 0.3907311284892737;  // sin 23 deg
   static constexpr double kTailY = 0.9205048534524404;  // cos 23 deg

@@ -61,6 +61,32 @@ int main() {
     check(s.settled() && s.angle() == 0, "then snaps exactly upright so redrawing can stop");
   }
   {
+    // A brisk move to the right turns the arrow round to point nearly straight along it.
+    ArrowSpring s;
+    double x = 500, y = 500;
+    move(s, x, y, 1200, 0, 0.6);
+    const double aligned = (90 + 23) * ArrowSpring::kPi / 180;
+    check(std::fabs(s.angle() - aligned) < 0.25, "moving right points the arrow along the motion");
+  }
+  {
+    // Moving straight back against the arrow swings it through a half turn, on either side.
+    const double back = (180 - 23) * ArrowSpring::kPi / 180;
+    ArrowSpring s;
+    double x = 500, y = 500;
+    move(s, x, y, 1200 * std::sin(back), -1200 * std::cos(back), 0.8);
+    check(std::fabs(s.angle()) > 2.6, "moving against the arrow turns it nearly 180 degrees");
+    check(std::fabs(s.angle()) <= ArrowSpring::kPi + 1e-9, "and never past a half turn");
+  }
+  {
+    // A lower limit caps the turn.
+    SpringParams p;
+    p.maxAngle = ArrowSpring::kPi / 2;
+    ArrowSpring s(p);
+    double x = 500, y = 500;
+    const double peak = move(s, x, y, -800, 1200, 0.8);
+    check(peak <= p.maxAngle + 1e-9 && peak > p.maxAngle - 0.05, "a 90 degree limit holds and is reached");
+  }
+  {
     // Moving the way the arrow already points (up and a little left) should barely turn it.
     ArrowSpring s;
     double x = 500, y = 500;

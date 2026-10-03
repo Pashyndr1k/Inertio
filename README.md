@@ -1,8 +1,10 @@
 # Inertia Cursor
 
-A small Windows background app that replaces the arrow pointer with an animated one. Move
-the mouse and the arrow leans into the motion, as if its tail were trailing through air.
-Stop, and it swings back to the classic upright pose with a little springy overshoot.
+A small Windows background app that replaces the arrow pointer with an animated one. The tip
+stays exactly where the pointer is and the whole arrow swings around it: move the mouse and
+the arrow turns to point the way you are going, up to a full half turn when you move straight
+back against it. Stop, and it swings back to the classic upright pose with a little springy
+overshoot.
 
 Only the normal arrow changes. The text beam, the hand over links, the resize arrows, the
 busy cursors and any pointer an app draws itself all stay exactly as they were.
@@ -46,9 +48,9 @@ sticks after a restart. **Reset motion to defaults** puts all four back.
 | Tray menu | Presets (default in bold) | What it does |
 | --- | --- | --- |
 | **Return speed** | Slow 1.5, Relaxed 2.2, **Default 3.0**, Quick 4.5, Snappy 6.5 | How fast it swings back upright once you stop, in swings per second. This is the spring's stiffness. |
-| **Wobble** | Bouncy 0.15, Lively 0.22, **Default 0.32**, Gentle 0.5, None 1.0 | Damping: how much it overshoots before settling. Lower bounces more; 1 returns without overshoot. |
-| **Tilt strength** | Subtle 200, Light 350, **Default 520**, Strong 800, Extreme 1200 | How hard moving the mouse leans the arrow toward the motion. |
-| **Max tilt** | 30°, 60°, 90°, 120°, **149°** | The furthest it can turn either way. |
+| **Wobble** | Bouncy 0.15, Lively 0.3, **Default 0.45**, Gentle 0.7, None 1.0 | Damping: how much it overshoots before settling. Lower bounces more; 1 returns without overshoot. |
+| **Tilt strength** | Subtle 1500, Light 3000, **Default 6000**, Strong 12000, Extreme 25000 | How hard moving the mouse swings the arrow round to point along the motion. |
+| **Max tilt** | 45°, 90°, 135°, **180°** | The furthest it can turn either way. At 180° it can face straight back. |
 
 If you've typed a value into the ini that isn't one of the presets, its submenu shows it as
 "Custom" until you pick a preset.
@@ -59,15 +61,16 @@ quit and restart the app:
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `Frequency` | 3.0 | Return speed: how fast it swings back, in swings per second |
-| `Damping` | 0.32 | Wobble: below 1 overshoots before settling; 1 or more returns smoothly |
-| `Drag` | 520 | Tilt strength: how far moving turns the arrow toward the motion |
+| `Damping` | 0.45 | Wobble: below 1 overshoots before settling; 1 or more returns smoothly |
+| `Drag` | 6000 | Tilt strength: how hard moving swings the arrow round to point along the motion |
 | `Kick` | 140 | How much it swings when you start or stop |
-| `MaxAngle` | 149 | Max tilt: furthest turn either way, in degrees |
+| `MaxAngle` | 180 | Max tilt: furthest turn either way, in degrees (180 lets it face straight back) |
 | `Size` | 1.0 | Arrow size, on top of Windows' own pointer size |
 | `Shadow` | 1 | Soft drop shadow, 1 on or 0 off |
 
-At the defaults, a slow drag tilts it about 15 degrees, a brisk move about 45, and a flick
-tops out near 57, each followed by a swing back of roughly a third the other way.
+At the defaults, a slow move turns the arrow about 80% of the way to pointing along it and a
+brisk one about 95%: moving right turns it roughly 100 degrees, moving straight back against
+it about 165. When you stop it swings back with an overshoot of about 15 to 25 degrees.
 
 ## Build it
 
@@ -98,9 +101,9 @@ builds and runs just the motion tests.
   topmost, click-through, never activated and kept out of Alt+Tab. Its tip sits exactly on
   the cursor's hotspot, so clicks land where they always did. It follows Windows' pointer
   size setting and each monitor's DPI.
-- `src/spring.h` is the motion: the arrow is a pendulum pinned at its tip. Drag from moving
-  and inertia from speeding up or braking push the tail; a torsion spring and damper pull it
-  back upright. It steps at a fixed 240 Hz, so it feels the same at 60 or 144 Hz, and it is
+- `src/spring.h` is the motion: the arrow is pinned at its tip like a weathervane. Moving
+  steers it to point along the motion, inertia from speeding up or braking swings the tail,
+  and a torsion spring and damper pull it back upright. It steps at a fixed 240 Hz, so it feels the same at 60 or 144 Hz, and it is
   plain C++ covered by `tests/spring_test.cpp`.
 - `src/main.cpp` runs the tray icon, the autostart entry, the crash and watchdog restore,
   and a frame loop paced to the display with `DwmFlush`. While no arrow is on screen it
